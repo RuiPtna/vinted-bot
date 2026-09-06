@@ -4,7 +4,7 @@ import threading
 import time
 
 from vinted_api import VintedClient
-from telegram_notify import send_telegram_message
+from telegram_notify import send_telegram_message, send_message_with_keyboard
 from telegram_commands import listen_for_commands
 from searches_store import load_searches
 from storage import load_seen, save_seen
@@ -30,8 +30,7 @@ def format_message(search_name, item):
         currency = price.get("currency_code", "")
     else:
         amount, currency = price, ""
-    url = item.get("url", "")
-    return f"🔎 {search_name}\n{title}\n💶 {amount} {currency}\n{url}"
+    return f"🔎 {search_name}\n{title}\n💶 {amount} {currency}"
 
 
 def run_cycle(client, seen):
@@ -49,7 +48,12 @@ def run_cycle(client, seen):
 
         for item in reversed(new_items):  # du plus ancien au plus récent
             try:
-                send_telegram_message(format_message(name, item))
+                url = item.get("url", "")
+                text = format_message(name, item)
+                if url:
+                    send_message_with_keyboard(text, [[{"text": "🔗 Ouvrir sur Vinted", "url": url}]])
+                else:
+                    send_telegram_message(text)
             except Exception as e:
                 print(f"[{name}] erreur envoi Telegram : {e}")
             seen_ids.add(str(item["id"]))
