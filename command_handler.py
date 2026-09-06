@@ -1,9 +1,9 @@
 from searches_store import load_searches, add_search, remove_search, save_searches
-from bot_state import is_paused, set_paused
+from bot_state import is_paused, set_paused, get_poll_interval, set_poll_interval, MIN_POLL_INTERVAL
 
 HELP_TEXT = (
     "Commandes disponibles :\n\n"
-    "/menu — affiche les boutons Arrêter / Reprendre\n"
+    "/menu — panneau de contrôle avec boutons\n"
     "/addsearch\n"
     "nom: <nom de la recherche>\n"
     "recherche: <mots-clés>\n"
@@ -11,19 +11,11 @@ HELP_TEXT = (
     "prix_max: <optionnel>\n"
     "exclure: <mots séparés par des virgules, optionnel>\n"
     "sauf: <mots séparés par des virgules, optionnel>\n\n"
-    "'exclure' rejette l'annonce si un de ces mots est dans le titre.\n"
-    "'sauf' repasse l'annonce même si un mot d'exclusion est présent.\n\n"
-    "/list — affiche tes recherches actives (numérotées)\n"
+    "/list — recherches actives (numérotées)\n"
     "/remove <numéro ou nom> — supprime une recherche\n"
     "/clear — supprime toutes les recherches\n"
-    "/help — affiche ce message\n\n"
-    "Exemple (console PSP, sans les annonces de jeux seuls) :\n"
-    "/addsearch\n"
-    "nom: PSP\n"
-    "recherche: psp\n"
-    "prix_max: 60\n"
-    "exclure: jeu, jeux, cartouche\n"
-    "sauf: console, pack, lot"
+    "/setinterval <secondes> — change la fréquence de vérification\n"
+    "/help — affiche ce message"
 )
 
 
@@ -40,17 +32,6 @@ def parse_word_list(value):
     return [w.strip() for w in value.split(",") if w.strip()]
 
 
-def build_menu_text_and_keyboard():
-    paused = is_paused()
-    status = "⏸️ En pause — aucune recherche en cours" if paused else "▶️ Actif — recherche en cours"
-    text = f"Statut du bot :\n{status}"
-    keyboard = [[
-        {"text": "⏸️ Arrêter", "callback_data": "pause"},
-        {"text": "▶️ Reprendre", "callback_data": "resume"},
-    ]]
-    return text, keyboard
-
-
 def format_search_list(searches):
     lines_out = []
     for i, s in enumerate(searches, start=1):
@@ -65,6 +46,56 @@ def format_search_list(searches):
             details += f" | sauf: {', '.join(s['override_words'])}"
         lines_out.append(f"{i}. {s['name']} — {details}")
     return lines_out
+
+
+def build_menu_text_and_keyboard():
+    paused = is_paused()
+    status = "⏸️ En pause" if paused else "▶️ Actif"
+    interval = get_poll_interval()
+    nb_searches = len(load_searches())
+
+    text = (
+        f"Statut : {status}\n"
+        f"Intervalle de vérification : {interval}s\n"
+        f"Recherches actives : {nb_searches}"
+    )
+
+    keyboard = [
+        [
+            {"text": "⏸️ Arrêter", "callback_data": "pause"},
+            {"text": "▶️ Reprendre", "callback_data": "resume"},
+        ],
+        [
+            {"text": "➖ 30s", "callback_data": "interval_dec"},
+            {"text": f"⏱ {interval}s", "callback_data": "noop"},
+            {"text": "➕ 30s", "callback_data": "interval_inc"},
+        ],
+        [
+            {"text": "📋 Mes recherches", "callback_data": "list"},
+            {"text": "❓ Aide", "callback_data": "help"},
+        ],
+    ]
+    return text, keyboard
+
+
+def handle_callback(data):
+    """Traite un clic sur un bouton du /menu. Retourne un message à envoyer en plus (ou None)."""
+    if data == "pause":
+        set_paused(True)
+    elif data == "resume":
+        set_paused(False)
+    elif data == "interval_dec":
+        set_poll_interval(max(MIN_POLL_INTERVAL, get_poll_interval() - 30))
+    elif data == "interval_inc":
+        set_poll_interval(get_poll_interval() + 30)
+    elif data == "list":
+        searches = load_searches()
+        if not searches:
+            return "Aucune recherche configurée."
+        return "Recherches actives :\n" + "\n".join(format_search_list(searches))
+    elif data == "help":
+        return HELP_TEXT
+    return None
 
 
 def handle_message(text):
@@ -121,6 +152,13 @@ def handle_message(text):
 
         removed = remove_search(arg)
         return f"🗑️ « {arg} » supprimée." if removed else f"Aucune recherche nommée « {arg} »."
+
+    if command.startswith("/setinterval"):
+        arg = text[len("/setinterval"):].strip()
+        if not arg.isdigit():
+            return f"Utilisation : /setinterval <secondes> (minimum {MIN_POLL_INTERVAL}s)"
+        new_value = set_poll_interval(int(arg))
+        return f"⏱ Intervalle réglé sur {new_value}s."
 
     if command.startswith("/pause"):
         set_paused(True)

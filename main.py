@@ -9,9 +9,8 @@ from telegram_notify import send_telegram_message, send_message_with_keyboard, s
 from telegram_commands import listen_for_commands
 from searches_store import load_searches
 from storage import load_seen, save_seen
-from bot_state import is_paused
+from bot_state import is_paused, get_poll_interval
 
-POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "90"))
 MAX_SEEN_PER_SEARCH = 500
 
 
@@ -104,7 +103,7 @@ def main():
             print("Bot en pause.")
         else:
             run_cycle(client, seen)
-        time.sleep(POLL_INTERVAL)
+        time.sleep(get_poll_interval())
 
 
 if __name__ == "__main__":

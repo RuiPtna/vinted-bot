@@ -7,8 +7,7 @@ from telegram_notify import (
     edit_message_keyboard,
     answer_callback_query,
 )
-from command_handler import handle_message, build_menu_text_and_keyboard
-from bot_state import set_paused
+from command_handler import handle_message, handle_callback, build_menu_text_and_keyboard
 
 
 def listen_for_commands():
@@ -26,15 +25,21 @@ def listen_for_commands():
 
             callback = update.get("callback_query")
             if callback:
-                data = callback.get("data")
+                data = callback.get("data", "")
                 message = callback.get("message", {})
-                if data in ("pause", "resume"):
-                    set_paused(data == "pause")
-                text, keyboard = build_menu_text_and_keyboard()
+
                 try:
-                    if "message_id" in message:
-                        edit_message_keyboard(message["message_id"], text, keyboard)
+                    extra_response = handle_callback(data)
+
+                    if data != "noop":
+                        text, keyboard = build_menu_text_and_keyboard()
+                        if "message_id" in message:
+                            edit_message_keyboard(message["message_id"], text, keyboard)
+
                     answer_callback_query(callback["id"])
+
+                    if extra_response:
+                        send_telegram_message(extra_response)
                 except Exception as e:
                     print(f"[commandes] erreur callback : {e}")
                 continue
