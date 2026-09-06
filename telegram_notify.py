@@ -61,3 +61,17 @@ def get_updates(offset=None, timeout=25):
     resp = requests.get(f"{API_URL}/getUpdates", params=params, timeout=timeout + 10)
     resp.raise_for_status()
     return resp.json().get("result", [])
+
+
+def send_photo_with_keyboard(photo_url, caption, keyboard):
+    resp = requests.post(
+        f"{API_URL}/sendPhoto",
+        json={
+            "chat_id": CHAT_ID,
+            "photo": photo_url,
+            "caption": caption,
+            "reply_markup": {"inline_keyboard": keyboard},
+        },
+        timeout=15,
+    )
+    resp.raise_for_status()

@@ -4,7 +4,7 @@ import threading
 import time
 
 from vinted_api import VintedClient
-from telegram_notify import send_telegram_message, send_message_with_keyboard
+from telegram_notify import send_telegram_message, send_message_with_keyboard, send_photo_with_keyboard
 from telegram_commands import listen_for_commands
 from searches_store import load_searches
 from storage import load_seen, save_seen
@@ -50,8 +50,15 @@ def run_cycle(client, seen):
             try:
                 url = item.get("url", "")
                 text = format_message(name, item)
-                if url:
-                    send_message_with_keyboard(text, [[{"text": "🔗 Ouvrir sur Vinted", "url": url}]])
+                keyboard = [[{"text": "🔗 Ouvrir sur Vinted", "url": url}]] if url else None
+
+                photo = item.get("photo")
+                photo_url = photo.get("url") if isinstance(photo, dict) else None
+
+                if photo_url and keyboard:
+                    send_photo_with_keyboard(photo_url, text, keyboard)
+                elif keyboard:
+                    send_message_with_keyboard(text, keyboard)
                 else:
                     send_telegram_message(text)
             except Exception as e:
