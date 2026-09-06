@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Doudoune Nike",
+    "search_text": "doudoune nike",
+    "price_to": 40
+  },
+  {
+    "name": "Sac Longchamp",
+    "search_text": "longchamp",
+    "price_to": 60
+  },
+  {
+    "name": "Sneakers New Balance 40",
+    "search_text": "new balance",
+    "price_from": 10,
+    "price_to": 50
+  }
+]
