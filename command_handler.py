@@ -1,4 +1,4 @@
-from searches_store import load_searches, add_search, remove_search
+from searches_store import load_searches, add_search, remove_search, save_searches
 from bot_state import is_paused, set_paused
 
 HELP_TEXT = (
@@ -9,14 +9,16 @@ HELP_TEXT = (
     "recherche: <mots-clés>\n"
     "prix_min: <optionnel>\n"
     "prix_max: <optionnel>\n\n"
-    "/list — affiche tes recherches actives\n"
-    "/remove <nom> — supprime une recherche\n"
+    "/list — affiche tes recherches actives (numérotées)\n"
+    "/remove <numéro ou nom> — supprime une recherche\n"
+    "/clear — supprime toutes les recherches\n"
     "/help — affiche ce message\n\n"
     "Exemple :\n"
     "/addsearch\n"
     "nom: Doudoune Nike\n"
     "recherche: doudoune nike\n"
-    "prix_max: 40"
+    "prix_max: 40\n\n"
+    "Pour supprimer : /remove 1 (numéro donné par /list)"
 )
 
 
@@ -38,6 +40,18 @@ def build_menu_text_and_keyboard():
         {"text": "▶️ Reprendre", "callback_data": "resume"},
     ]]
     return text, keyboard
+
+
+def format_search_list(searches):
+    lines_out = []
+    for i, s in enumerate(searches, start=1):
+        details = s.get("search_text", "")
+        if s.get("price_from"):
+            details += f", min {s['price_from']}€"
+        if s.get("price_to"):
+            details += f", max {s['price_to']}€"
+        lines_out.append(f"{i}. {s['name']} — {details}")
+    return lines_out
 
 
 def handle_message(text):
@@ -67,22 +81,29 @@ def handle_message(text):
         searches = load_searches()
         if not searches:
             return "Aucune recherche configurée."
-        lines_out = []
-        for s in searches:
-            details = s.get("search_text", "")
-            if s.get("price_from"):
-                details += f", min {s['price_from']}€"
-            if s.get("price_to"):
-                details += f", max {s['price_to']}€"
-            lines_out.append(f"• {s['name']} — {details}")
-        return "Recherches actives :\n" + "\n".join(lines_out)
+        return "Recherches actives :\n" + "\n".join(format_search_list(searches))
+
+    if command.startswith("/clear"):
+        save_searches([])
+        return "🗑️ Toutes les recherches ont été supprimées."
 
     if command.startswith("/remove"):
-        name = text[len("/remove"):].strip()
-        if not name:
-            return "Utilisation : /remove <nom de la recherche>"
-        removed = remove_search(name)
-        return f"🗑️ « {name} » supprimée." if removed else f"Aucune recherche nommée « {name} »."
+        arg = text[len("/remove"):].strip()
+        if not arg:
+            return "Utilisation : /remove <numéro ou nom> (voir /list)"
+
+        searches = load_searches()
+        if arg.isdigit():
+            index = int(arg) - 1
+            if 0 <= index < len(searches):
+                removed_name = searches[index]["name"]
+                del searches[index]
+                save_searches(searches)
+                return f"🗑️ « {removed_name} » supprimée."
+            return f"Aucune recherche avec le numéro {arg}. Envoie /list pour voir les numéros actuels."
+
+        removed = remove_search(arg)
+        return f"🗑️ « {arg} » supprimée." if removed else f"Aucune recherche nommée « {arg} »."
 
     if command.startswith("/pause"):
         set_paused(True)
