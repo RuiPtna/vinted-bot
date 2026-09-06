@@ -1,20 +1,17 @@
-import json
 import os
 import random
+import threading
 import time
 
 from vinted_api import VintedClient
 from telegram_notify import send_telegram_message
+from telegram_commands import listen_for_commands
+from searches_store import load_searches
 from storage import load_seen, save_seen
+from bot_state import is_paused
 
-SEARCHES_FILE = os.environ.get("SEARCHES_FILE", "searches.json")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "90"))
 MAX_SEEN_PER_SEARCH = 500
-
-
-def load_searches():
-    with open(SEARCHES_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 
 def build_params(search):
@@ -67,10 +64,16 @@ def run_cycle(client, seen):
 def main():
     client = VintedClient()
     seen = load_seen()
-    print("Bot Vinted démarré.")
 
+    # Écoute des commandes (/addsearch, /list, /remove...) en tâche de fond
+    threading.Thread(target=listen_for_commands, daemon=True).start()
+
+    print("Bot Vinted démarré.")
     while True:
-        run_cycle(client, seen)
+        if is_paused():
+            print("Bot en pause.")
+        else:
+            run_cycle(client, seen)
         time.sleep(POLL_INTERVAL)
 
 

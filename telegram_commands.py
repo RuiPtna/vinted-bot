@@ -1,0 +1,57 @@
+import time
+
+from telegram_notify import (
+    get_updates,
+    send_telegram_message,
+    send_message_with_keyboard,
+    edit_message_keyboard,
+    answer_callback_query,
+)
+from command_handler import handle_message, build_menu_text_and_keyboard
+from bot_state import set_paused
+
+
+def listen_for_commands():
+    offset = None
+    while True:
+        try:
+            updates = get_updates(offset=offset)
+        except Exception as e:
+            print(f"[commandes] erreur getUpdates : {e}")
+            time.sleep(5)
+            continue
+
+        for update in updates:
+            offset = update["update_id"] + 1
+
+            callback = update.get("callback_query")
+            if callback:
+                data = callback.get("data")
+                message = callback.get("message", {})
+                if data in ("pause", "resume"):
+                    set_paused(data == "pause")
+                text, keyboard = build_menu_text_and_keyboard()
+                try:
+                    if "message_id" in message:
+                        edit_message_keyboard(message["message_id"], text, keyboard)
+                    answer_callback_query(callback["id"])
+                except Exception as e:
+                    print(f"[commandes] erreur callback : {e}")
+                continue
+
+            message = update.get("message", {})
+            text = message.get("text")
+            if not text:
+                continue
+
+            try:
+                if text.strip().lower().startswith("/menu"):
+                    menu_text, keyboard = build_menu_text_and_keyboard()
+                    send_message_with_keyboard(menu_text, keyboard)
+                    continue
+
+                response = handle_message(text)
+                if response:
+                    send_telegram_message(response)
+            except Exception as e:
+                print(f"[commandes] erreur traitement : {e}")
