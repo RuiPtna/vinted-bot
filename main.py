@@ -1,5 +1,6 @@
 import os
 import random
+import re
 import threading
 import time
 
@@ -33,6 +34,20 @@ def format_message(search_name, item):
     return f"🔎 {search_name}\n{title}\n💶 {amount} {currency}"
 
 
+def passes_filters(item, search):
+    exclude_words = search.get("exclude_words") or []
+    if not exclude_words:
+        return True
+
+    title = (item.get("title") or "").lower()
+    has_exclude = any(re.search(rf"\b{re.escape(w.lower())}\b", title) for w in exclude_words)
+    if not has_exclude:
+        return True
+
+    override_words = search.get("override_words") or []
+    return any(re.search(rf"\b{re.escape(w.lower())}\b", title) for w in override_words)
+
+
 def run_cycle(client, seen):
     for search in load_searches():
         name = search.get("name", "recherche")
@@ -47,6 +62,11 @@ def run_cycle(client, seen):
         new_items = [it for it in items if str(it["id"]) not in seen_ids]
 
         for item in reversed(new_items):  # du plus ancien au plus récent
+            seen_ids.add(str(item["id"]))
+
+            if not passes_filters(item, search):
+                continue
+
             try:
                 url = item.get("url", "")
                 text = format_message(name, item)
@@ -63,7 +83,6 @@ def run_cycle(client, seen):
                     send_telegram_message(text)
             except Exception as e:
                 print(f"[{name}] erreur envoi Telegram : {e}")
-            seen_ids.add(str(item["id"]))
             time.sleep(1)
 
         seen[name] = list(seen_ids)[-MAX_SEEN_PER_SEARCH:]

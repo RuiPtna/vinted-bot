@@ -8,17 +8,22 @@ HELP_TEXT = (
     "nom: <nom de la recherche>\n"
     "recherche: <mots-clés>\n"
     "prix_min: <optionnel>\n"
-    "prix_max: <optionnel>\n\n"
+    "prix_max: <optionnel>\n"
+    "exclure: <mots séparés par des virgules, optionnel>\n"
+    "sauf: <mots séparés par des virgules, optionnel>\n\n"
+    "'exclure' rejette l'annonce si un de ces mots est dans le titre.\n"
+    "'sauf' repasse l'annonce même si un mot d'exclusion est présent.\n\n"
     "/list — affiche tes recherches actives (numérotées)\n"
     "/remove <numéro ou nom> — supprime une recherche\n"
     "/clear — supprime toutes les recherches\n"
     "/help — affiche ce message\n\n"
-    "Exemple :\n"
+    "Exemple (console PSP, sans les annonces de jeux seuls) :\n"
     "/addsearch\n"
-    "nom: Doudoune Nike\n"
-    "recherche: doudoune nike\n"
-    "prix_max: 40\n\n"
-    "Pour supprimer : /remove 1 (numéro donné par /list)"
+    "nom: PSP\n"
+    "recherche: psp\n"
+    "prix_max: 60\n"
+    "exclure: jeu, jeux, cartouche\n"
+    "sauf: console, pack, lot"
 )
 
 
@@ -29,6 +34,10 @@ def parse_fields(lines):
             key, value = line.split(":", 1)
             fields[key.strip().lower()] = value.strip()
     return fields
+
+
+def parse_word_list(value):
+    return [w.strip() for w in value.split(",") if w.strip()]
 
 
 def build_menu_text_and_keyboard():
@@ -50,6 +59,10 @@ def format_search_list(searches):
             details += f", min {s['price_from']}€"
         if s.get("price_to"):
             details += f", max {s['price_to']}€"
+        if s.get("exclude_words"):
+            details += f" | exclut: {', '.join(s['exclude_words'])}"
+        if s.get("override_words"):
+            details += f" | sauf: {', '.join(s['override_words'])}"
         lines_out.append(f"{i}. {s['name']} — {details}")
     return lines_out
 
@@ -73,6 +86,10 @@ def handle_message(text):
             new_search["price_from"] = fields["prix_min"]
         if fields.get("prix_max"):
             new_search["price_to"] = fields["prix_max"]
+        if fields.get("exclure"):
+            new_search["exclude_words"] = parse_word_list(fields["exclure"])
+        if fields.get("sauf"):
+            new_search["override_words"] = parse_word_list(fields["sauf"])
 
         add_search(new_search)
         return f"✅ Recherche « {name} » ajoutée."
