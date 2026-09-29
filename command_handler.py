@@ -9,8 +9,13 @@ HELP_TEXT = (
     "recherche: <mots-clés>\n"
     "prix_min: <optionnel>\n"
     "prix_max: <optionnel>\n"
+    "categorie: <optionnel, ID Vinted — voir /help pour comment le trouver>\n"
     "exclure: <mots séparés par des virgules, optionnel>\n"
     "sauf: <mots séparés par des virgules, optionnel>\n\n"
+    "'categorie' restreint aux annonces classées dans cette catégorie Vinted\n"
+    "(ex: 'Consoles', pas 'Jeux') — bien plus fiable que 'exclure'/'sauf'.\n"
+    "Pour trouver l'ID : sur vinted.fr, filtre par cette catégorie, regarde\n"
+    "l'URL, le nombre après catalog[]= est l'ID.\n\n"
     "/list — recherches actives (numérotées)\n"
     "/remove <numéro ou nom> — supprime une recherche\n"
     "/clear — supprime toutes les recherches\n"
@@ -40,6 +45,8 @@ def format_search_list(searches):
             details += f", min {s['price_from']}€"
         if s.get("price_to"):
             details += f", max {s['price_to']}€"
+        if s.get("catalog_ids"):
+            details += f" | catégorie: {s['catalog_ids']}"
         if s.get("exclude_words"):
             details += f" | exclut: {', '.join(s['exclude_words'])}"
         if s.get("override_words"):
@@ -69,6 +76,9 @@ def build_menu_text_and_keyboard():
             {"text": "➖ 30s", "callback_data": "interval_dec"},
             {"text": f"⏱ {interval}s", "callback_data": "noop"},
             {"text": "➕ 30s", "callback_data": "interval_inc"},
+        ],
+        [
+            {"text": "➕ Ajouter une recherche", "callback_data": "addsearch"},
         ],
         [
             {"text": "📋 Mes recherches", "callback_data": "list"},
@@ -117,6 +127,8 @@ def handle_message(text):
             new_search["price_from"] = fields["prix_min"]
         if fields.get("prix_max"):
             new_search["price_to"] = fields["prix_max"]
+        if fields.get("categorie"):
+            new_search["catalog_ids"] = fields["categorie"]
         if fields.get("exclure"):
             new_search["exclude_words"] = parse_word_list(fields["exclure"])
         if fields.get("sauf"):
